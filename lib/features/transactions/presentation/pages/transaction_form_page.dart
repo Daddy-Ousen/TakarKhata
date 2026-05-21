@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:khatabook/core/enums/transaction_type.dart';
 import 'package:khatabook/core/theme/color_schemes.dart';
 import 'package:khatabook/core/utils/currency_formatter.dart';
+import 'package:khatabook/core/utils/uuid_generator.dart';
+import 'package:khatabook/features/transactions/domain/entities/transaction_entry.dart';
 import 'package:khatabook/core/providers/app_providers.dart';
 import 'package:khatabook/features/accounts/application/providers/account_providers.dart';
 import 'package:khatabook/features/categories/domain/entities/category.dart'
@@ -311,27 +313,55 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
       final notes =
           _notesController.text.isEmpty ? null : _notesController.text;
 
-      if (_type == TransactionType.transfer) {
-        final fee = _feeController.text.isNotEmpty
-            ? CurrencyFormatter.parse(_feeController.text) ?? 0
-            : 0;
-        await service.createTransfer(
-          amount: amount,
-          sourceAccountId: _accountId!,
-          destinationAccountId: _destinationAccountId!,
-          transferFee: fee,
-          notes: notes,
-          transactionDate: _transactionDate,
-        );
+      if (_isEditing) {
+        final existing = await ref.read(transactionRepositoryProvider).getTransactionById(widget.transactionId!);
+        if (existing != null) {
+          final fee = _type == TransactionType.transfer
+              ? (_feeController.text.isNotEmpty ? (CurrencyFormatter.parse(_feeController.text) ?? 0) : 0)
+              : 0;
+
+          final updated = TransactionEntry(
+            id: existing.id,
+            type: _type,
+            amount: amount,
+            accountId: _accountId!,
+            destinationAccountId: _type == TransactionType.transfer ? _destinationAccountId : null,
+            categoryId: _type != TransactionType.transfer ? _categoryId : null,
+            transferFee: fee,
+            transferGroupId: _type == TransactionType.transfer ? (existing.transferGroupId ?? UuidGenerator.generate()) : null,
+            notes: notes,
+            transactionDate: _transactionDate,
+            createdAt: existing.createdAt,
+            modifiedAt: DateTime.now(),
+            syncVersion: existing.syncVersion,
+            isDeleted: existing.isDeleted,
+          );
+
+          await service.updateTransaction(updated);
+        }
       } else {
-        await service.createTransaction(
-          type: _type,
-          amount: amount,
-          accountId: _accountId!,
-          categoryId: _categoryId,
-          notes: notes,
-          transactionDate: _transactionDate,
-        );
+        if (_type == TransactionType.transfer) {
+          final fee = _feeController.text.isNotEmpty
+              ? CurrencyFormatter.parse(_feeController.text) ?? 0
+              : 0;
+          await service.createTransfer(
+            amount: amount,
+            sourceAccountId: _accountId!,
+            destinationAccountId: _destinationAccountId!,
+            transferFee: fee,
+            notes: notes,
+            transactionDate: _transactionDate,
+          );
+        } else {
+          await service.createTransaction(
+            type: _type,
+            amount: amount,
+            accountId: _accountId!,
+            categoryId: _categoryId,
+            notes: notes,
+            transactionDate: _transactionDate,
+          );
+        }
       }
 
       ref.invalidate(recentTransactionsProvider);

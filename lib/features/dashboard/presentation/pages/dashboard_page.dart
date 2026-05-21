@@ -365,7 +365,7 @@ class _NetWorthCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Net Worth',
+                    'Current Balance',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
@@ -374,9 +374,9 @@ class _NetWorthCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    netWorth.toCurrencyString(),
+                    currentBalance.toCurrencyString(),
                     style: TextStyle(
-                      color: netWorth >= 0 ? AppColors.income : AppColors.expense,
+                      color: currentBalance >= 0 ? AppColors.textPrimary : AppColors.expense,
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Inter',
@@ -390,7 +390,7 @@ class _NetWorthCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Current Balance',
+                    'Net Worth',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
@@ -399,9 +399,9 @@ class _NetWorthCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    currentBalance.toCurrencyString(),
+                    netWorth.toCurrencyString(),
                     style: TextStyle(
-                      color: currentBalance >= 0 ? AppColors.textPrimary : AppColors.expense,
+                      color: netWorth >= 0 ? AppColors.income : AppColors.expense,
                       fontSize: 24,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'Inter',

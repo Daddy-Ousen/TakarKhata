@@ -1,7 +1,7 @@
 name: khatabook
 description: "A production-quality, offline-first personal finance ledger application."
 publish_to: 'none'
-version: 1.0.3+3
+version: 1.0.4+4
 
 environment:
   sdk: ^3.12.0
@@ -49,9 +49,18 @@ dev_dependencies:
   riverpod_generator: ^2.6.2
   json_serializable: ^6.9.3
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
 
 dependency_overrides:
   flutter_plugin_android_lifecycle: 2.0.23
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  image_path: "assets/icon/app_icon.png"
