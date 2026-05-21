@@ -4,6 +4,7 @@ import 'package:khatabook/features/dashboard/presentation/pages/dashboard_page.d
 import 'package:khatabook/features/transactions/presentation/pages/ledger_page.dart';
 import 'package:khatabook/features/transactions/presentation/pages/transaction_form_page.dart';
 import 'package:khatabook/features/accounts/presentation/pages/accounts_page.dart';
+import 'package:khatabook/features/categories/presentation/pages/categories_page.dart';
 import 'package:khatabook/features/loans/presentation/pages/loans_page.dart';
 import 'package:khatabook/features/settings/presentation/pages/settings_page.dart';
 import 'package:khatabook/core/widgets/adaptive_scaffold.dart';
@@ -13,6 +14,7 @@ class AppRoutes {
   static const String dashboard = '/';
   static const String ledger = '/ledger';
   static const String accounts = '/accounts';
+  static const String categories = '/categories';
   static const String loans = '/loans';
   static const String settings = '/settings';
   static const String addTransaction = '/transaction/add';
@@ -47,6 +49,12 @@ final GoRouter appRouter = GoRouter(
           ),
         ),
         GoRoute(
+          path: AppRoutes.categories,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: CategoriesPage(),
+          ),
+        ),
+        GoRoute(
           path: AppRoutes.loans,
           pageBuilder: (context, state) => const NoTransitionPage(
             child: LoansPage(),
@@ -68,6 +76,12 @@ final GoRouter appRouter = GoRouter(
       path: '/transaction/edit/:id',
       builder: (context, state) => TransactionFormPage(
         transactionId: state.pathParameters['id'],
+      ),
+    ),
+    GoRoute(
+      path: '/categories/:id/ledger',
+      builder: (context, state) => LedgerPage(
+        categoryId: state.pathParameters['id'],
       ),
     ),
   ],
@@ -101,6 +115,11 @@ class AppShell extends StatelessWidget {
       label: 'Loans',
     ),
     AdaptiveDestination(
+      icon: Icons.category_outlined,
+      selectedIcon: Icons.category,
+      label: 'Categories',
+    ),
+    AdaptiveDestination(
       icon: Icons.settings_outlined,
       selectedIcon: Icons.settings,
       label: 'Settings',
@@ -112,6 +131,7 @@ class AppShell extends StatelessWidget {
     AppRoutes.ledger,
     AppRoutes.accounts,
     AppRoutes.loans,
+    AppRoutes.categories,
     AppRoutes.settings,
   ];
 

@@ -10,7 +10,9 @@ import 'package:khatabook/features/transactions/application/providers/transactio
 import 'package:khatabook/features/transactions/domain/entities/transaction_entry.dart';
 
 class LedgerPage extends ConsumerStatefulWidget {
-  const LedgerPage({super.key});
+  final String? categoryId;
+
+  const LedgerPage({super.key, this.categoryId});
 
   @override
   ConsumerState<LedgerPage> createState() => _LedgerPageState();
@@ -29,7 +31,14 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final transactionsAsync = ref.watch(recentTransactionsProvider);
+    var filter = ref.watch(transactionFilterProvider);
+    if (widget.categoryId != null) {
+      filter = filter.copyWith(categoryId: widget.categoryId);
+    }
+    
+    final transactionsAsync = filter == const TransactionFilter()
+        ? ref.watch(recentTransactionsProvider)
+        : ref.watch(filteredTransactionsProvider(filter));
 
     return Scaffold(
       appBar: _selectedIds.isNotEmpty
