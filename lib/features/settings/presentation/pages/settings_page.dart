@@ -98,7 +98,7 @@ class SettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('KhataBook'),
-                  subtitle: const Text('Version 1.01'),
+                  subtitle: const Text('Version 1.02'),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -156,7 +156,7 @@ class SettingsPage extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Text(
                   'File: ${file.path.split('/').last}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textMuted,
                   ),

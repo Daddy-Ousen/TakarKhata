@@ -10,7 +10,11 @@ import 'package:khatabook/features/transactions/application/financial_engine.dar
 import 'package:fl_chart/fl_chart.dart';
 import 'package:khatabook/features/accounts/domain/entities/account.dart';
 
-/// Provider for monthly dashboard data.
+// --- State Providers ---
+final selectedMonthProvider = StateProvider<DateTime>((ref) => DateTime.now());
+final selectedYearProvider = StateProvider<int>((ref) => DateTime.now().year);
+
+// --- Overview Data Providers ---
 final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   // Watch streams to trigger re-evaluation on DB changes
   ref.watch(ledgerUpdateProvider);
@@ -22,9 +26,7 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   return engine.calculateDashboard(now.startOfMonth, now.endOfMonth);
 });
 
-/// Provider for yearly trend data.
-final yearlyTrendsProvider =
-    FutureProvider<List<MonthlyTrend>>((ref) async {
+final yearlyTrendsProvider = FutureProvider<List<MonthlyTrend>>((ref) async {
   ref.watch(ledgerUpdateProvider);
   ref.watch(accountsStreamProvider);
   ref.watch(recentTransactionsProvider);
@@ -33,14 +35,72 @@ final yearlyTrendsProvider =
   return engine.monthlyTrends(DateTime.now().year);
 });
 
-/// Provider for net worth.
 final netWorthProvider = FutureProvider<int>((ref) async {
+  ref.watch(ledgerUpdateProvider);
   ref.watch(accountsStreamProvider);
   return ref.watch(financialEngineProvider).calculateNetWorth();
 });
 
-class DashboardPage extends ConsumerWidget {
+// --- Monthly Data Providers ---
+final monthlyDashboardDataProvider = FutureProvider<DashboardData>((ref) async {
+  ref.watch(ledgerUpdateProvider);
+  final month = ref.watch(selectedMonthProvider);
+  final engine = ref.watch(financialEngineProvider);
+  return engine.calculateDashboard(month.startOfMonth, month.endOfMonth);
+});
+
+// --- Yearly Data Providers ---
+final yearlyDashboardDataProvider = FutureProvider<DashboardData>((ref) async {
+  ref.watch(ledgerUpdateProvider);
+  final year = ref.watch(selectedYearProvider);
+  final engine = ref.watch(financialEngineProvider);
+  return engine.calculateDashboard(
+    DateTime(year, 1, 1), 
+    DateTime(year, 12, 31, 23, 59, 59, 999)
+  );
+});
+
+final customYearlyTrendsProvider = FutureProvider<List<MonthlyTrend>>((ref) async {
+  ref.watch(ledgerUpdateProvider);
+  final year = ref.watch(selectedYearProvider);
+  final engine = ref.watch(financialEngineProvider);
+  return engine.monthlyTrends(year);
+});
+
+// --- Main Dashboard Page ---
+class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Dashboard'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Overview'),
+              Tab(text: 'Monthly'),
+              Tab(text: 'Yearly'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            _OverviewTabView(),
+            _MonthlyTabView(),
+            _YearlyTabView(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- Overview Tab ---
+class _OverviewTabView extends ConsumerWidget {
+  const _OverviewTabView();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,84 +109,226 @@ class DashboardPage extends ConsumerWidget {
     final netWorthAsync = ref.watch(netWorthProvider);
     final accountsAsync = ref.watch(accountsWithBalancesProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              ref.invalidate(dashboardDataProvider);
-              ref.invalidate(yearlyTrendsProvider);
-              ref.invalidate(netWorthProvider);
-              ref.invalidate(accountsWithBalancesProvider);
-            },
-          ),
-        ],
+    return dashboardAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error: $e')),
+      data: (dashboard) => RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(dashboardDataProvider);
+          ref.invalidate(yearlyTrendsProvider);
+          ref.invalidate(netWorthProvider);
+          ref.invalidate(accountsWithBalancesProvider);
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            netWorthAsync.when(
+              data: (netWorth) => _NetWorthCard(
+                netWorth: netWorth,
+                currentBalance: dashboard.currentBalance,
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 16),
+            _SummaryCardsRow(dashboard: dashboard),
+            const SizedBox(height: 16),
+            if (dashboard.expensesByCategory.isNotEmpty)
+              _ExpensePieChart(
+                expenses: dashboard.expensesByCategory,
+                categoryNames: dashboard.categoryNames,
+              ),
+            const SizedBox(height: 16),
+            trendsAsync.when(
+              data: (trends) => trends.isNotEmpty
+                  ? _TrendChart(trends: trends)
+                  : const SizedBox.shrink(),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 16),
+            accountsAsync.when(
+              data: (accounts) => _AccountOverview(accounts: accounts),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 16),
+            _LiabilitiesCard(
+              totalOwed: dashboard.totalLiabilities,
+              totalReceivable: dashboard.totalReceivables,
+              creditDebt: dashboard.creditCardDebt,
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
-      body: dashboardAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('Error: $e')),
-        data: (dashboard) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(dashboardDataProvider);
-            ref.invalidate(yearlyTrendsProvider);
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+    );
+  }
+}
+
+// --- Monthly Tab ---
+class _MonthlyTabView extends ConsumerWidget {
+  const _MonthlyTabView();
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedMonth = ref.watch(selectedMonthProvider);
+    final dashboardAsync = ref.watch(monthlyDashboardDataProvider);
+
+    return Column(
+      children: [
+        // Month Selector
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // ── Net Worth Card ──
-              netWorthAsync.when(
-                data: (netWorth) => _NetWorthCard(
-                  netWorth: netWorth,
-                  currentBalance: dashboard.currentBalance,
-                ),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () {
+                  ref.read(selectedMonthProvider.notifier).state =
+                      DateTime(selectedMonth.year, selectedMonth.month - 1);
+                },
               ),
-              const SizedBox(height: 16),
-
-              // ── Summary Cards Row ──
-              _SummaryCardsRow(dashboard: dashboard),
-              const SizedBox(height: 16),
-
-              // ── Expense Breakdown Pie Chart ──
-              if (dashboard.expensesByCategory.isNotEmpty)
-                _ExpensePieChart(
-                  expenses: dashboard.expensesByCategory,
-                  categoryNames: dashboard.categoryNames,
-                ),
-              const SizedBox(height: 16),
-
-              // ── Monthly Trends ──
-              trendsAsync.when(
-                data: (trends) => trends.isNotEmpty
-                    ? _TrendChart(trends: trends)
-                    : const SizedBox.shrink(),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+              Text(
+                '${_months[selectedMonth.month - 1]} ${selectedMonth.year}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
-
-              // ── Account Overview ──
-              accountsAsync.when(
-                data: (accounts) => _AccountOverview(accounts: accounts),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () {
+                  ref.read(selectedMonthProvider.notifier).state =
+                      DateTime(selectedMonth.year, selectedMonth.month + 1);
+                },
               ),
-              const SizedBox(height: 16),
-
-              // ── Liabilities & Receivables ──
-              _LiabilitiesCard(
-                totalOwed: dashboard.totalLiabilities,
-                totalReceivable: dashboard.totalReceivables,
-                creditDebt: dashboard.creditCardDebt,
-              ),
-              const SizedBox(height: 32),
             ],
           ),
         ),
-      ),
+        // Content
+        Expanded(
+          child: dashboardAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+            data: (dashboard) => RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(monthlyDashboardDataProvider);
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _SummaryCardsRow(dashboard: dashboard),
+                  const SizedBox(height: 16),
+                  if (dashboard.expensesByCategory.isNotEmpty)
+                    _ExpensePieChart(
+                      expenses: dashboard.expensesByCategory,
+                      categoryNames: dashboard.categoryNames,
+                    )
+                  else
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Center(
+                          child: Text('No expenses recorded for this month.'),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// --- Yearly Tab ---
+class _YearlyTabView extends ConsumerWidget {
+  const _YearlyTabView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedYear = ref.watch(selectedYearProvider);
+    final dashboardAsync = ref.watch(yearlyDashboardDataProvider);
+    final trendsAsync = ref.watch(customYearlyTrendsProvider);
+
+    return Column(
+      children: [
+        // Year Selector
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () {
+                  ref.read(selectedYearProvider.notifier).state = selectedYear - 1;
+                },
+              ),
+              Text(
+                '$selectedYear',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () {
+                  ref.read(selectedYearProvider.notifier).state = selectedYear + 1;
+                },
+              ),
+            ],
+          ),
+        ),
+        // Content
+        Expanded(
+          child: dashboardAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+            data: (dashboard) => RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(yearlyDashboardDataProvider);
+                ref.invalidate(customYearlyTrendsProvider);
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _SummaryCardsRow(dashboard: dashboard),
+                  const SizedBox(height: 16),
+                  if (dashboard.expensesByCategory.isNotEmpty)
+                    _ExpensePieChart(
+                      expenses: dashboard.expensesByCategory,
+                      categoryNames: dashboard.categoryNames,
+                    )
+                  else
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Center(
+                          child: Text('No expenses recorded for this year.'),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  trendsAsync.when(
+                    data: (trends) => trends.isNotEmpty
+                        ? _TrendChart(trends: trends)
+                        : const SizedBox.shrink(),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
