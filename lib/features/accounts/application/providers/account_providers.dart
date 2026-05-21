@@ -10,6 +10,7 @@ final accountsStreamProvider = StreamProvider<List<Account>>((ref) {
 /// Future provider for accounts with calculated balances.
 final accountsWithBalancesProvider =
     FutureProvider<List<Account>>((ref) async {
+  ref.watch(ledgerUpdateProvider);
   ref.watch(accountsStreamProvider);
   return ref.watch(accountServiceProvider).getAccountsWithBalances();
 });
@@ -24,6 +25,7 @@ final accountByIdProvider =
 /// Provider for calculated balance of a specific account.
 final accountBalanceProvider =
     FutureProvider.family<int, String>((ref, accountId) async {
+  ref.watch(ledgerUpdateProvider);
   ref.watch(accountsStreamProvider);
   return ref.watch(accountRepositoryProvider).getCalculatedBalance(accountId);
 });

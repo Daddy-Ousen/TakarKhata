@@ -13,6 +13,7 @@ import 'package:khatabook/features/accounts/domain/entities/account.dart';
 /// Provider for monthly dashboard data.
 final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   // Watch streams to trigger re-evaluation on DB changes
+  ref.watch(ledgerUpdateProvider);
   ref.watch(accountsStreamProvider);
   ref.watch(recentTransactionsProvider);
   
@@ -24,6 +25,7 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
 /// Provider for yearly trend data.
 final yearlyTrendsProvider =
     FutureProvider<List<MonthlyTrend>>((ref) async {
+  ref.watch(ledgerUpdateProvider);
   ref.watch(accountsStreamProvider);
   ref.watch(recentTransactionsProvider);
   

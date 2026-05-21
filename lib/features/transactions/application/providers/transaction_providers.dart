@@ -6,6 +6,7 @@ import 'package:khatabook/features/transactions/domain/entities/transaction_entr
 /// Stream provider for recent transactions (reactive, auto-updates).
 final recentTransactionsProvider =
     StreamProvider<List<TransactionEntry>>((ref) {
+  ref.watch(ledgerUpdateProvider);
   return ref
       .watch(transactionRepositoryProvider)
       .watchRecentTransactions(limit: 50);
@@ -15,6 +16,7 @@ final recentTransactionsProvider =
 final filteredTransactionsProvider = FutureProvider.family<
     List<TransactionEntry>, TransactionFilter>((ref, filter) async {
   // Watch recent transactions stream so that ANY new transaction triggers a refetch
+  ref.watch(ledgerUpdateProvider);
   ref.watch(recentTransactionsProvider);
 
   final repo = ref.watch(transactionRepositoryProvider);

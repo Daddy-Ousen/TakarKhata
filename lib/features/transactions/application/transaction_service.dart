@@ -16,10 +16,13 @@ class TransactionService {
   final AccountRepository _accountRepository;
   final FinancialEngine _financialEngine;
 
+  final void Function()? onLedgerUpdated;
+
   TransactionService({
     required TransactionRepository transactionRepository,
     required AccountRepository accountRepository,
     required FinancialEngine financialEngine,
+    this.onLedgerUpdated,
   })  : _transactionRepository = transactionRepository,
         _accountRepository = accountRepository,
         _financialEngine = financialEngine;
@@ -60,6 +63,7 @@ class TransactionService {
 
     final created = await _transactionRepository.createTransaction(transaction);
     await _financialEngine.recalculateAfterMutation([accountId]);
+    onLedgerUpdated?.call();
 
     return created;
   }
@@ -126,6 +130,7 @@ class TransactionService {
     // Recalculate both accounts
     await _financialEngine
         .recalculateAfterMutation([sourceAccountId, destinationAccountId]);
+    onLedgerUpdated?.call();
 
     return created;
   }
@@ -159,6 +164,7 @@ class TransactionService {
 
     final created = await _transactionRepository.createTransaction(transaction);
     await _financialEngine.recalculateAfterMutation([accountId]);
+    onLedgerUpdated?.call();
 
     return created;
   }
@@ -185,6 +191,7 @@ class TransactionService {
 
     await _transactionRepository.updateTransaction(toUpdate);
     await _financialEngine.recalculateAfterMutation(affectedIds.toList());
+    onLedgerUpdated?.call();
   }
 
   /// Delete (soft-delete) a transaction.
@@ -200,5 +207,27 @@ class TransactionService {
 
     await _transactionRepository.deleteTransaction(id);
     await _financialEngine.recalculateAfterMutation(affectedIds);
+    onLedgerUpdated?.call();
+  }
+
+  /// Batch delete multiple transactions.
+  /// 
+  /// After all deletions are processed, recalculates balances for all affected accounts
+  /// once.
+  Future<void> batchDeleteTransactions(List<String> ids) async {
+    final affectedIds = <String>{};
+    
+    for (final id in ids) {
+      final existing = await _transactionRepository.getTransactionById(id);
+      if (existing != null) {
+        affectedIds.addAll(_financialEngine.getAffectedAccountIds(existing));
+        await _transactionRepository.deleteTransaction(id);
+      }
+    }
+
+    if (affectedIds.isNotEmpty) {
+      await _financialEngine.recalculateAfterMutation(affectedIds.toList());
+      onLedgerUpdated?.call();
+    }
   }
 }

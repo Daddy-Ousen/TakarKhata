@@ -54,11 +54,16 @@ final financialEngineProvider = Provider<FinancialEngine>((ref) {
 
 // ─── Services ────────────────────────────────────────────────────────────────
 
+final ledgerUpdateProvider = StateProvider<int>((ref) => 0);
+
 final transactionServiceProvider = Provider<TransactionService>((ref) {
   return TransactionService(
     transactionRepository: ref.watch(transactionRepositoryProvider),
     accountRepository: ref.watch(accountRepositoryProvider),
     financialEngine: ref.watch(financialEngineProvider),
+    onLedgerUpdated: () {
+      ref.read(ledgerUpdateProvider.notifier).state++;
+    },
   );
 });
 

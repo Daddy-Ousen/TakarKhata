@@ -19,6 +19,7 @@ class LedgerPage extends ConsumerStatefulWidget {
 class _LedgerPageState extends ConsumerState<LedgerPage> {
   final _searchController = TextEditingController();
   bool _showSearch = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void dispose() {
@@ -31,48 +32,62 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
     final transactionsAsync = ref.watch(recentTransactionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: _showSearch
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search transactions...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
+      appBar: _selectedIds.isNotEmpty
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _clearSelection,
+              ),
+              title: Text('${_selectedIds.length} selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: _confirmBatchDelete,
                 ),
-                onChanged: (query) {
-                  ref.read(transactionFilterProvider.notifier).state =
-                      TransactionFilter(searchQuery: query);
-                },
-              )
-            : const Text('Ledger'),
-        actions: [
-          IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchController.clear();
-                  ref.read(transactionFilterProvider.notifier).state =
-                      const TransactionFilter();
-                }
-              });
-            },
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list),
-            onSelected: (value) => _handleFilter(value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'all', child: Text('All')),
-              const PopupMenuItem(value: 'income', child: Text('Income')),
-              const PopupMenuItem(value: 'expense', child: Text('Expenses')),
-              const PopupMenuItem(value: 'transfer', child: Text('Transfers')),
-            ],
-          ),
-        ],
-      ),
+              ],
+            )
+          : AppBar(
+              title: _showSearch
+                  ? TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Search transactions...',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (query) {
+                        ref.read(transactionFilterProvider.notifier).state =
+                            TransactionFilter(searchQuery: query);
+                      },
+                    )
+                  : const Text('Ledger'),
+              actions: [
+                IconButton(
+                  icon: Icon(_showSearch ? Icons.close : Icons.search),
+                  onPressed: () {
+                    setState(() {
+                      _showSearch = !_showSearch;
+                      if (!_showSearch) {
+                        _searchController.clear();
+                        ref.read(transactionFilterProvider.notifier).state =
+                            const TransactionFilter();
+                      }
+                    });
+                  },
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.filter_list),
+                  onSelected: (value) => _handleFilter(value),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'all', child: Text('All')),
+                    const PopupMenuItem(value: 'income', child: Text('Income')),
+                    const PopupMenuItem(value: 'expense', child: Text('Expenses')),
+                    const PopupMenuItem(value: 'transfer', child: Text('Transfers')),
+                  ],
+                ),
+              ],
+            ),
       body: transactionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(
@@ -157,8 +172,16 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                   ...group.transactions.map(
                     (txn) => _TransactionTile(
                       transaction: txn,
-                      onTap: () =>
-                          context.push('/transaction/edit/${txn.id}'),
+                      isSelected: _selectedIds.contains(txn.id),
+                      isSelectionMode: _selectedIds.isNotEmpty,
+                      onTap: () {
+                        if (_selectedIds.isNotEmpty) {
+                          _toggleSelection(txn.id);
+                        } else {
+                          context.push('/transaction/edit/${txn.id}');
+                        }
+                      },
+                      onLongPress: () => _toggleSelection(txn.id),
                       onDelete: () => _confirmDelete(txn),
                     ),
                   ),
@@ -214,11 +237,68 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
     if (confirmed == true && mounted) {
       try {
         await ref.read(transactionServiceProvider).deleteTransaction(txn.id);
-        ref.invalidate(recentTransactionsProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Transaction deleted')),
           );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedIds.clear();
+    });
+  }
+
+  Future<void> _confirmBatchDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transactions'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedIds.length} transactions? '
+          'Account balances will be recalculated.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(transactionServiceProvider).batchDeleteTransactions(_selectedIds.toList());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${_selectedIds.length} transactions deleted')),
+          );
+          _clearSelection();
         }
       } catch (e) {
         if (mounted) {
@@ -274,12 +354,18 @@ class _DateGroup {
 class _TransactionTile extends StatelessWidget {
   final TransactionEntry transaction;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
   final VoidCallback onDelete;
+  final bool isSelected;
+  final bool isSelectionMode;
 
   const _TransactionTile({
     required this.transaction,
     required this.onTap,
+    required this.onLongPress,
     required this.onDelete,
+    this.isSelected = false,
+    this.isSelectionMode = false,
   });
 
   Color get _typeColor {
@@ -323,7 +409,7 @@ class _TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dismissible(
       key: Key(transaction.id),
-      direction: DismissDirection.endToStart,
+      direction: isSelectionMode ? DismissDirection.none : DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -331,22 +417,34 @@ class _TransactionTile extends StatelessWidget {
         child: const Icon(Icons.delete, color: AppColors.expense),
       ),
       confirmDismiss: (_) async {
-        onDelete();
+        if (!isSelectionMode) {
+          onDelete();
+        }
         return false;
       },
-      child: ListTile(
-        onTap: onTap,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: _typeColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(_typeIcon, color: _typeColor, size: 20),
-        ),
+      child: Container(
+        color: isSelected ? AppColors.seedColor.withValues(alpha: 0.1) : null,
+        child: ListTile(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          leading: isSelectionMode
+              ? Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => onLongPress(),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                )
+              : Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _typeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(_typeIcon, color: _typeColor, size: 20),
+                ),
         title: Text(
           transaction.notes ?? transaction.type.label,
           style: const TextStyle(
@@ -371,6 +469,7 @@ class _TransactionTile extends StatelessWidget {
             fontSize: 15,
           ),
         ),
+      ),
       ),
     );
   }
