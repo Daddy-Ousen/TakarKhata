@@ -91,6 +91,11 @@ class LoanRepositoryImpl implements LoanRepository {
   }
 
   @override
+  Future<void> deleteLoan(String id) async {
+    await _db.loanDao.deleteLoan(id);
+  }
+
+  @override
   Future<void> addPayment(domain.LoanPayment payment) async {
     await _db.loanDao.insertPayment(LoanPaymentsCompanion(
       id: Value(payment.id),

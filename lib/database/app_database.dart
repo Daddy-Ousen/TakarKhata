@@ -70,6 +70,18 @@ class AppDatabase extends _$AppDatabase {
       },
     );
   }
+
+  /// Clears all data from all tables in the database.
+  /// Use with extreme caution.
+  Future<void> clearAllData() async {
+    await transaction(() async {
+      await delete(loanPayments).go();
+      await delete(loans).go();
+      await delete(transactions).go();
+      await delete(accounts).go();
+      await delete(categories).go();
+    });
+  }
 }
 
 /// Opens a lazy database connection to a SQLite file on disk.

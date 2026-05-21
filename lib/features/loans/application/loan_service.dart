@@ -156,8 +156,12 @@ class LoanService {
       loan.copyWith(
         remainingAmount: newRemaining,
         status: newStatus,
-        modifiedAt: now,
       ),
     );
+  }
+
+  /// Delete a loan by ID.
+  Future<void> deleteLoan(String loanId) async {
+    await _loanRepository.deleteLoan(loanId);
   }
 }

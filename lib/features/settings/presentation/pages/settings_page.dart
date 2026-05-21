@@ -10,6 +10,7 @@ import 'package:khatabook/core/enums/transaction_type.dart' as khatabook;
 import 'package:khatabook/features/transactions/domain/entities/transaction_entry.dart' as khatabook;
 import 'package:khatabook/features/transactions/application/providers/transaction_providers.dart';
 import 'package:khatabook/features/accounts/application/providers/account_providers.dart';
+import 'package:khatabook/features/dashboard/presentation/pages/dashboard_page.dart';
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -37,6 +38,13 @@ class SettingsPage extends ConsumerWidget {
                   title: const Text('Import Data'),
                   subtitle: const Text('Import from JSON backup'),
                   onTap: () => _importData(context, ref),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_forever, color: AppColors.expense),
+                  title: const Text('Wipe All Data', style: TextStyle(color: AppColors.expense)),
+                  subtitle: const Text('Permanently delete all accounts, transactions, and loans'),
+                  onTap: () => _confirmWipeData(context, ref),
                 ),
               ],
             ),
@@ -300,6 +308,72 @@ class SettingsPage extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Import error: $e')));
+      }
+    }
+  }
+
+  Future<void> _confirmWipeData(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wipe All Data'),
+        content: const Text(
+          'Are you absolutely sure you want to permanently delete all accounts, transactions, and loans? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+            child: const Text('Wipe Data'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final doubleCheck = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Final Warning', style: TextStyle(color: AppColors.expense)),
+          content: const Text('This is your last chance. Wipe all data completely?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.expense, foregroundColor: Colors.white),
+              child: const Text('WIPE DATA'),
+            ),
+          ],
+        ),
+      );
+
+      if (doubleCheck == true) {
+        try {
+          await ref.read(databaseProvider).clearAllData();
+          ref.invalidate(dashboardDataProvider);
+          ref.invalidate(accountsWithBalancesProvider);
+          ref.invalidate(netWorthProvider);
+          ref.invalidate(yearlyTrendsProvider);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('All data has been wiped successfully.')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error wiping data: $e')),
+            );
+          }
+        }
       }
     }
   }

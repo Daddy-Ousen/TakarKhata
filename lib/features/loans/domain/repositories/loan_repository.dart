@@ -35,6 +35,9 @@ abstract class LoanRepository {
   /// Throws if the loan does not exist.
   Future<void> updateLoan(Loan loan);
 
+  /// Delete a loan by its unique [id].
+  Future<void> deleteLoan(String id);
+
   /// Record a payment against a loan.
   ///
   /// Persists the [payment] and updates the parent loan's

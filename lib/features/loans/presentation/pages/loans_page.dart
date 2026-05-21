@@ -70,6 +70,7 @@ class LoansPage extends ConsumerWidget {
                 ...active.map((loan) => _LoanCard(
                       loan: loan,
                       onPayment: () => _showPaymentDialog(context, ref, loan),
+                      onDelete: () => _confirmDeleteLoan(context, ref, loan),
                     )),
                 const SizedBox(height: 16),
               ],
@@ -77,7 +78,10 @@ class LoansPage extends ConsumerWidget {
               if (settled.isNotEmpty) ...[
                 _SectionHeader(
                     title: 'Settled', count: settled.length),
-                ...settled.map((loan) => _LoanCard(loan: loan)),
+                ...settled.map((loan) => _LoanCard(
+                      loan: loan,
+                      onDelete: () => _confirmDeleteLoan(context, ref, loan),
+                    )),
               ],
             ],
           );
@@ -141,6 +145,33 @@ class LoansPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteLoan(
+      BuildContext context, WidgetRef ref, Loan loan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Loan'),
+        content: Text('Delete loan for "${loan.personName}"? This will also remove all associated payments permanently.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(loanServiceProvider).deleteLoan(loan.id);
+      // ref.invalidate(loansStreamProvider) is not needed since it's a stream
+    }
   }
 }
 
@@ -266,8 +297,9 @@ class _SectionHeader extends StatelessWidget {
 class _LoanCard extends StatelessWidget {
   final Loan loan;
   final VoidCallback? onPayment;
+  final VoidCallback? onDelete;
 
-  const _LoanCard({required this.loan, this.onPayment});
+  const _LoanCard({required this.loan, this.onPayment, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -343,12 +375,37 @@ class _LoanCard extends StatelessWidget {
             ),
             if (onPayment != null && loan.status.isActive) ...[
               const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (onDelete != null)
+                    TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.expense,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: onPayment,
+                    icon: const Icon(Icons.payment, size: 18),
+                    label: const Text('Record Payment'),
+                  ),
+                ],
+              ),
+            ] else if (onDelete != null) ...[
+              const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
-                  onPressed: onPayment,
-                  icon: const Icon(Icons.payment, size: 18),
-                  label: const Text('Record Payment'),
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete, size: 18),
+                  label: const Text('Delete'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.expense,
+                  ),
                 ),
               ),
             ],
