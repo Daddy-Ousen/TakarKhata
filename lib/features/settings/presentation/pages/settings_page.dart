@@ -448,7 +448,7 @@ class _InitialBalancesDialogState extends ConsumerState<_InitialBalancesDialog> 
         if (controller == null || controller.text.isEmpty) continue;
 
         int newAmount = CurrencyFormatter.parseOrThrow(controller.text);
-        if (account.type == khatabook.AccountType.credit) {
+        if (account.type.name == 'credit') {
           newAmount = -newAmount;
         }
 
