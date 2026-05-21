@@ -128,7 +128,7 @@ class _TotalBalanceCard extends StatelessWidget {
       if (a.type.isAsset) {
         totalAssets += a.cachedBalance;
       } else {
-        totalLiabilities += a.cachedBalance;
+        totalLiabilities += a.cachedBalance.abs();
       }
     }
 

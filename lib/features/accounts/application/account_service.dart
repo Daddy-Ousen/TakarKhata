@@ -42,7 +42,7 @@ class AccountService {
     if (openingBalance > 0) {
       await _transactionService.createOpeningBalance(
         accountId: created.id,
-        amount: openingBalance,
+        amount: type == AccountType.credit ? -openingBalance : openingBalance,
         balanceDate: openingBalanceDate ?? now,
       );
     }

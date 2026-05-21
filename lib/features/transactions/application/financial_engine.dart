@@ -3,6 +3,7 @@ import 'package:khatabook/features/categories/domain/repositories/category_repos
 import 'package:khatabook/features/transactions/domain/entities/transaction_entry.dart';
 import 'package:khatabook/features/transactions/domain/repositories/transaction_repository.dart';
 import 'package:khatabook/features/loans/domain/repositories/loan_repository.dart';
+import 'package:khatabook/core/enums/account_type.dart';
 
 /// Data class representing dashboard analytics for a given period.
 class DashboardData {
@@ -194,13 +195,8 @@ class FinancialEngine {
       if (account.type.isInverted) {
         // Balance for credit accounts is returned as (payments - expenses).
         // Since expenses > payments usually, balance is negative.
-        // Debt should be a positive number.
-        if (balance < 0) {
-          creditDebt += -balance;
-        } else {
-          // If balance is positive, it means they overpaid the credit card,
-          // so they have no debt.
-        }
+        // Even if recorded positive by mistake, treat it as debt.
+        creditDebt += balance.abs();
       }
     }
 
@@ -259,24 +255,33 @@ class FinancialEngine {
     return trends;
   }
 
-  /// Get the total net worth (all asset accounts + overpaid credit - credit debt).
+  /// Get the total net worth according to the formula:
+  /// Net worth = (Debit accounts + Cash accounts + Savings Accounts + Loans Owed to me) - (Credit accounts + Loans I owe to people)
   Future<int> calculateNetWorth() async {
     final accounts = await _accountRepository.getAllAccounts();
     int netWorth = 0;
 
     for (final account in accounts) {
       final balance = await calculateAccountBalance(account.id);
-      if (account.type.isAsset) {
+      
+      if (account.type == AccountType.debit || 
+          account.type == AccountType.cash || 
+          account.type == AccountType.savings) {
         netWorth += balance;
-      } else {
-        // Credit account: balance is (payments - expenses).
-        // It is normally negative (owed money).
-        // Net worth should ADD the negative balance, which effectively subtracts the debt!
-        // E.g. balance is -100 (owe 100). netWorth += -100.
-        // If they overpaid (balance is +50), netWorth += 50.
-        netWorth += balance;
+      } else if (account.type == AccountType.credit) {
+        // Always subtract the absolute value of the credit account balance
+        netWorth -= balance.abs();
       }
     }
+
+    final totalLiabilities = await _loanRepository.getTotalOwed();
+    final totalReceivables = await _loanRepository.getTotalReceivable();
+
+    // + Loans Owed to me
+    netWorth += totalReceivables.abs();
+    
+    // - Loans I owe to people
+    netWorth -= totalLiabilities.abs();
 
     return netWorth;
   }
