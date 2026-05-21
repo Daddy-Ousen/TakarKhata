@@ -447,13 +447,17 @@ class _InitialBalancesDialogState extends ConsumerState<_InitialBalancesDialog> 
         final controller = _controllers[account.id];
         if (controller == null || controller.text.isEmpty) continue;
 
-        final newAmount = CurrencyFormatter.parseOrThrow(controller.text);
+        int newAmount = CurrencyFormatter.parseOrThrow(controller.text);
+        if (account.type == khatabook.AccountType.credit) {
+          newAmount = -newAmount;
+        }
+
         final existingTx = openingTxs.where((tx) => tx.accountId == account.id).firstOrNull;
 
         if (existingTx != null) {
           if (existingTx.amount != newAmount) {
             await transactionService.deleteTransaction(existingTx.id);
-            if (newAmount > 0) {
+            if (newAmount != 0) {
               await transactionService.createOpeningBalance(
                 accountId: account.id,
                 amount: newAmount,
@@ -461,7 +465,7 @@ class _InitialBalancesDialogState extends ConsumerState<_InitialBalancesDialog> 
               );
             }
           }
-        } else if (newAmount > 0) {
+        } else if (newAmount != 0) {
           await transactionService.createOpeningBalance(
             accountId: account.id,
             amount: newAmount,
@@ -521,8 +525,8 @@ class _InitialBalancesDialogState extends ConsumerState<_InitialBalancesDialog> 
                       if (!_controllers.containsKey(account.id)) {
                         final tx = openingTxs.where((t) => t.accountId == account.id).firstOrNull;
                         _controllers[account.id] = TextEditingController(
-                          text: tx != null && tx.amount > 0 
-                              ? CurrencyFormatter.formatPlain(tx.amount) 
+                          text: tx != null && tx.amount != 0 
+                              ? CurrencyFormatter.formatPlain(tx.amount.abs()) 
                               : '',
                         );
                       }
