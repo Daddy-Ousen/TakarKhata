@@ -9,6 +9,6 @@ void main() {
     await tester.pumpWidget(const KhataBookApp());
 
     // Verify the loading screen appears.
-    expect(find.text('KhataBook'), findsOneWidget);
+    expect(find.text('TakarKhata'), findsOneWidget);
   });
 }
