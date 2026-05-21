@@ -98,7 +98,7 @@ class SettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('KhataBook'),
-                  subtitle: const Text('Version 1.0.0'),
+                  subtitle: const Text('Version 1.01'),
                 ),
                 const Divider(height: 1),
                 ListTile(
