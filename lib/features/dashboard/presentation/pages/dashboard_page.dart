@@ -133,11 +133,17 @@ class _OverviewTabView extends ConsumerWidget {
             const SizedBox(height: 16),
             _SummaryCardsRow(dashboard: dashboard),
             const SizedBox(height: 16),
-            if (dashboard.expensesByCategory.isNotEmpty)
+            if (dashboard.expensesByCategory.isNotEmpty) ...[
               _ExpensePieChart(
                 expenses: dashboard.expensesByCategory,
                 categoryNames: dashboard.categoryNames,
               ),
+              const SizedBox(height: 16),
+              _CategoryExpenseList(
+                expenses: dashboard.expensesByCategory,
+                categoryNames: dashboard.categoryNames,
+              ),
+            ],
             const SizedBox(height: 16),
             trendsAsync.when(
               data: (trends) => trends.isNotEmpty
@@ -223,12 +229,17 @@ class _MonthlyTabView extends ConsumerWidget {
                 children: [
                   _SummaryCardsRow(dashboard: dashboard),
                   const SizedBox(height: 16),
-                  if (dashboard.expensesByCategory.isNotEmpty)
+                  if (dashboard.expensesByCategory.isNotEmpty) ...[
                     _ExpensePieChart(
                       expenses: dashboard.expensesByCategory,
                       categoryNames: dashboard.categoryNames,
-                    )
-                  else
+                    ),
+                    const SizedBox(height: 16),
+                    _CategoryExpenseList(
+                      expenses: dashboard.expensesByCategory,
+                      categoryNames: dashboard.categoryNames,
+                    ),
+                  ] else
                     const Card(
                       child: Padding(
                         padding: EdgeInsets.all(32.0),
@@ -300,12 +311,17 @@ class _YearlyTabView extends ConsumerWidget {
                 children: [
                   _SummaryCardsRow(dashboard: dashboard),
                   const SizedBox(height: 16),
-                  if (dashboard.expensesByCategory.isNotEmpty)
+                  if (dashboard.expensesByCategory.isNotEmpty) ...[
                     _ExpensePieChart(
                       expenses: dashboard.expensesByCategory,
                       categoryNames: dashboard.categoryNames,
-                    )
-                  else
+                    ),
+                    const SizedBox(height: 16),
+                    _CategoryExpenseList(
+                      expenses: dashboard.expensesByCategory,
+                      categoryNames: dashboard.categoryNames,
+                    ),
+                  ] else
                     const Card(
                       child: Padding(
                         padding: EdgeInsets.all(32.0),
@@ -623,6 +639,67 @@ class _ExpensePieChart extends StatelessWidget {
                 );
               }).toList(),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Category Expense List ──────────────────────────────────────────────────
+
+class _CategoryExpenseList extends StatelessWidget {
+  final Map<String, int> expenses;
+  final Map<String, String> categoryNames;
+
+  const _CategoryExpenseList({
+    required this.expenses,
+    required this.categoryNames,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (expenses.isEmpty) return const SizedBox.shrink();
+
+    final sortedEntries = expenses.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Expenses by Category',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...sortedEntries.map((entry) {
+              final categoryName = categoryNames[entry.key] ?? 'Unknown';
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.expense.withValues(alpha: 0.1),
+                  child: const Icon(Icons.category, color: AppColors.expense, size: 20),
+                ),
+                title: Text(
+                  categoryName,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                trailing: Text(
+                  entry.value.toCurrencyString(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.expense,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),

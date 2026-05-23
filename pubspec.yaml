@@ -1,7 +1,7 @@
 name: khatabook
 description: "A production-quality, offline-first personal finance ledger application."
 publish_to: 'none'
-version: 1.0.4+4
+version: 1.0.5+5
 
 environment:
   sdk: ^3.12.0

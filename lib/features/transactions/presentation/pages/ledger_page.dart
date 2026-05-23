@@ -22,6 +22,9 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   final _searchController = TextEditingController();
   bool _showSearch = false;
   final Set<String> _selectedIds = {};
+  bool _explicitSelectionMode = false;
+
+  bool get _isSelectionMode => _explicitSelectionMode || _selectedIds.isNotEmpty;
 
   @override
   void dispose() {
@@ -41,7 +44,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
         : ref.watch(filteredTransactionsProvider(filter));
 
     return Scaffold(
-      appBar: _selectedIds.isNotEmpty
+      appBar: _isSelectionMode
           ? AppBar(
               leading: IconButton(
                 icon: const Icon(Icons.close),
@@ -49,10 +52,11 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
               ),
               title: Text('${_selectedIds.length} selected'),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: _confirmBatchDelete,
-                ),
+                if (_selectedIds.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: _confirmBatchDelete,
+                  ),
               ],
             )
           : AppBar(
@@ -82,6 +86,14 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                         ref.read(transactionFilterProvider.notifier).state =
                             const TransactionFilter();
                       }
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.checklist),
+                  onPressed: () {
+                    setState(() {
+                      _explicitSelectionMode = true;
                     });
                   },
                 ),
@@ -182,9 +194,9 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
                     (txn) => _TransactionTile(
                       transaction: txn,
                       isSelected: _selectedIds.contains(txn.id),
-                      isSelectionMode: _selectedIds.isNotEmpty,
+                      isSelectionMode: _isSelectionMode,
                       onTap: () {
-                        if (_selectedIds.isNotEmpty) {
+                        if (_isSelectionMode) {
                           _toggleSelection(txn.id);
                         } else {
                           context.push('/transaction/edit/${txn.id}');
@@ -274,6 +286,7 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
   void _clearSelection() {
     setState(() {
       _selectedIds.clear();
+      _explicitSelectionMode = false;
     });
   }
 
